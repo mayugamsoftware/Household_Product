@@ -1,22 +1,17 @@
 """
 utils.py
-Shared utilities for the Household Product Predictive Maintenance Dashboard.
+Household Product Predictive Maintenance Dashboard
 
 Features:
-- Blynk configuration
 - Secure Blynk token using Streamlit Secrets
-- Live sensor fetching
+- Live Blynk sensor fetching
 - Product configuration
 - Product age calculation
 - Cached ML model loading
 - Condition prediction
-- Remaining Useful Life (RUL) prediction
+- RUL prediction
 - Prediction history save/load
 """
-
-# ============================================================
-# IMPORTS
-# ============================================================
 
 import os
 from datetime import datetime
@@ -37,57 +32,107 @@ BASE_URL = "https://blynk.cloud/external/api"
 
 def get_blynk_token():
     """
-    Get Blynk token securely.
+    Get Blynk token.
 
     Priority:
-    1. Streamlit Secrets - recommended for Streamlit Cloud
-    2. Environment variable - useful for local development
+    1. Streamlit Secrets
+    2. Environment variable
+
+    Returns:
+        str | None
     """
 
-    # Streamlit Cloud
-    try:
-        token = st.secrets.get("BLYNK_TOKEN")
+    # --------------------------------------------------------
+    # STREAMLIT CLOUD SECRETS
+    # --------------------------------------------------------
 
-        if token:
-            return str(token).strip()
+    try:
+        if "BLYNK_TOKEN" in st.secrets:
+
+            token = st.secrets["BLYNK_TOKEN"]
+
+            if token is not None:
+                token = str(token).strip()
+
+                if token:
+                    return token
 
     except Exception:
         pass
 
-    # Local development
-    token = os.getenv("BLYNK_TOKEN")
+    # --------------------------------------------------------
+    # LOCAL ENVIRONMENT VARIABLE
+    # --------------------------------------------------------
 
-    if token:
-        return str(token).strip()
+    try:
+        token = os.getenv("BLYNK_TOKEN")
+
+        if token:
+            token = str(token).strip()
+
+            if token:
+                return token
+
+    except Exception:
+        pass
 
     return None
 
 
-BLYNK_TOKEN = get_blynk_token()
+def get_blynk_status():
+    """
+    Return Blynk configuration status.
+    """
 
+    token = get_blynk_token()
+
+    if token:
+        return True, "BLYNK_TOKEN configured successfully."
+
+    return (
+        False,
+        "BLYNK_TOKEN is not configured. "
+        "Add BLYNK_TOKEN in Streamlit Cloud Secrets."
+    )
+
+
+# ============================================================
+# BLYNK URL
+# ============================================================
 
 def build_blynk_url(pin):
     """
-    Build Blynk GET API URL for a virtual pin.
+    Build Blynk API URL dynamically.
+
+    Example:
+        V0
+        V1
+        V2
     """
 
-    if not BLYNK_TOKEN:
+    token = get_blynk_token()
+
+    if not token:
         return None
 
-    return f"{BASE_URL}/get?token={BLYNK_TOKEN}&{pin}"
+    return (
+        f"{BASE_URL}/get"
+        f"?token={token}"
+        f"&{pin}"
+    )
 
 
 # ============================================================
 # BLYNK VIRTUAL PIN CONFIGURATION
 # ============================================================
 
-VPIN_URLS = {
-    "voltage": build_blynk_url("V0"),
-    "product1_current": build_blynk_url("V1"),
-    "product2_current": build_blynk_url("V2"),
-    "product3_current": build_blynk_url("V3"),
-    "temperature": build_blynk_url("V4"),
-    "vibration": build_blynk_url("V5"),
+VPINS = {
+    "voltage": "V0",
+    "product1_current": "V1",
+    "product2_current": "V2",
+    "product3_current": "V3",
+    "temperature": "V4",
+    "vibration": "V5",
 }
 
 
@@ -96,6 +141,7 @@ VPIN_URLS = {
 # ============================================================
 
 PRODUCT_CONFIG = {
+
     "PRODUCT 1": {
         "manufacturing_date": "2025-01-15",
         "installation_date": "2025-02-01",
@@ -123,15 +169,25 @@ PRODUCT_CONFIG = {
 # FILE PATH CONFIGURATION
 # ============================================================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
-DATA_DIR = os.path.join(BASE_DIR, "data")
+DATA_DIR = os.path.join(
+    BASE_DIR,
+    "data"
+)
 
-# Create data folder if it doesn't exist
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(
+    DATA_DIR,
+    exist_ok=True
+)
 
 
+# ============================================================
 # ML MODEL FILES
+# ============================================================
+
 SCALER_FILE = os.path.join(
     BASE_DIR,
     "scaler.pkl"
@@ -158,6 +214,7 @@ LIFE_MODEL_FILE = os.path.join(
 # ============================================================
 
 HISTORY_COLUMNS = [
+
     "timestamp",
     "product",
     "voltage",
@@ -168,6 +225,7 @@ HISTORY_COLUMNS = [
     "rul_months",
     "manufacturing_age_years",
     "installation_age_years",
+
 ]
 
 
@@ -176,9 +234,6 @@ HISTORY_COLUMNS = [
 # ============================================================
 
 def history_file(product_name: str) -> str:
-    """
-    Return CSV history path for a product.
-    """
 
     safe_name = (
         str(product_name)
@@ -199,42 +254,46 @@ def history_file(product_name: str) -> str:
 
 @st.cache_resource(show_spinner=False)
 def load_models():
-    """
-    Load all trained ML models.
-
-    Returns:
-        models, errors
-
-    models:
-        Dictionary containing scaler, encoder,
-        condition model and life model.
-
-    errors:
-        List of errors if loading fails.
-    """
 
     model_files = {
-        "scaler": SCALER_FILE,
-        "label_encoder": LABEL_ENCODER_FILE,
-        "condition_model": CONDITION_MODEL_FILE,
-        "life_model": LIFE_MODEL_FILE,
+
+        "scaler":
+            SCALER_FILE,
+
+        "label_encoder":
+            LABEL_ENCODER_FILE,
+
+        "condition_model":
+            CONDITION_MODEL_FILE,
+
+        "life_model":
+            LIFE_MODEL_FILE,
     }
 
     # --------------------------------------------------------
-    # CHECK MISSING FILES
+    # CHECK FILES
     # --------------------------------------------------------
 
     missing_files = [
+
         file_path
+
         for file_path in model_files.values()
+
         if not os.path.exists(file_path)
+
     ]
 
     if missing_files:
 
         missing_names = [
-            os.path.basename(file_path)
+
+            os.path.basename(
+                file_path
+            )
+
             for file_path in missing_files
+
         ]
 
         return None, [
@@ -243,7 +302,7 @@ def load_models():
         ]
 
     # --------------------------------------------------------
-    # LOAD MODELS
+    # LOAD
     # --------------------------------------------------------
 
     try:
@@ -265,10 +324,19 @@ def load_models():
         )
 
         models = {
-            "scaler": scaler,
-            "label_encoder": label_encoder,
-            "condition_model": condition_model,
-            "life_model": life_model,
+
+            "scaler":
+                scaler,
+
+            "label_encoder":
+                label_encoder,
+
+            "condition_model":
+                condition_model,
+
+            "life_model":
+                life_model,
+
         }
 
         return models, []
@@ -281,22 +349,35 @@ def load_models():
 
 
 # ============================================================
-# BLYNK SENSOR FETCH
+# FETCH ONE BLYNK SENSOR
 # ============================================================
 
-def fetch_sensor(url: str, timeout: int = 5):
+def fetch_sensor(
+    pin_or_url: str,
+    timeout: int = 10
+):
     """
-    Fetch one Blynk virtual-pin value.
+    Fetch one Blynk virtual pin.
+
+    Accepts:
+        V0
+        V1
+        V2
+
+    or a complete Blynk URL.
 
     Returns:
-        value, error_message
+        value, error
     """
 
     # --------------------------------------------------------
-    # CHECK TOKEN
+    # TOKEN
     # --------------------------------------------------------
 
-    if not BLYNK_TOKEN:
+    token = get_blynk_token()
+
+    if not token:
+
         return (
             None,
             "BLYNK_TOKEN is not configured. "
@@ -304,13 +385,31 @@ def fetch_sensor(url: str, timeout: int = 5):
         )
 
     # --------------------------------------------------------
-    # CHECK URL
+    # URL
     # --------------------------------------------------------
 
-    if not url:
+    if not pin_or_url:
+
         return (
             None,
-            "Blynk URL is not configured."
+            "Blynk pin is not configured."
+        )
+
+    if str(pin_or_url).startswith("http"):
+
+        url = pin_or_url
+
+    else:
+
+        url = build_blynk_url(
+            str(pin_or_url)
+        )
+
+    if not url:
+
+        return (
+            None,
+            "Unable to build Blynk API URL."
         )
 
     # --------------------------------------------------------
@@ -324,38 +423,54 @@ def fetch_sensor(url: str, timeout: int = 5):
             timeout=timeout
         )
 
-        # HTTP ERROR
+        # ----------------------------------------------------
+        # HTTP STATUS
+        # ----------------------------------------------------
+
         if response.status_code != 200:
 
             return (
                 None,
-                f"HTTP {response.status_code}: "
+                f"Blynk HTTP {response.status_code}: "
                 f"{response.text}"
             )
 
-        # RESPONSE TEXT
+        # ----------------------------------------------------
+        # VALUE
+        # ----------------------------------------------------
+
         raw_value = response.text.strip()
 
-        if raw_value == "":
+        if not raw_value:
+
             return (
                 None,
                 "Empty value returned from Blynk."
             )
 
-        # CONVERT TO FLOAT
+        # ----------------------------------------------------
+        # NUMERIC
+        # ----------------------------------------------------
+
         try:
 
-            value = float(raw_value)
+            value = float(
+                raw_value
+            )
 
         except ValueError:
 
             return (
                 None,
-                f"Non-numeric value received: "
+                f"Non-numeric Blynk value: "
                 f"'{raw_value}'"
             )
 
         return value, None
+
+    # --------------------------------------------------------
+    # TIMEOUT
+    # --------------------------------------------------------
 
     except requests.exceptions.Timeout:
 
@@ -364,13 +479,21 @@ def fetch_sensor(url: str, timeout: int = 5):
             "Blynk request timed out."
         )
 
+    # --------------------------------------------------------
+    # CONNECTION
+    # --------------------------------------------------------
+
     except requests.exceptions.ConnectionError:
 
         return (
             None,
             "Blynk connection error. "
-            "Check internet connection and device status."
+            "Check Blynk Cloud and device connection."
         )
+
+    # --------------------------------------------------------
+    # REQUEST ERROR
+    # --------------------------------------------------------
 
     except requests.exceptions.RequestException as e:
 
@@ -378,6 +501,10 @@ def fetch_sensor(url: str, timeout: int = 5):
             None,
             f"Blynk request error: {str(e)}"
         )
+
+    # --------------------------------------------------------
+    # UNKNOWN ERROR
+    # --------------------------------------------------------
 
     except Exception as e:
 
@@ -388,42 +515,47 @@ def fetch_sensor(url: str, timeout: int = 5):
 
 
 # ============================================================
-# FETCH COMMON SENSOR VALUES
+# FETCH COMMON VALUES
 # ============================================================
 
 def fetch_common_values():
-    """
-    Fetch common sensors:
-
-    V0 -> Voltage
-    V4 -> Temperature
-    V5 -> Vibration
-
-    Returns dictionary containing values and errors.
-    """
 
     voltage, voltage_error = fetch_sensor(
-        VPIN_URLS["voltage"]
+        VPINS["voltage"]
     )
 
     temperature, temperature_error = fetch_sensor(
-        VPIN_URLS["temperature"]
+        VPINS["temperature"]
     )
 
     vibration, vibration_error = fetch_sensor(
-        VPIN_URLS["vibration"]
+        VPINS["vibration"]
     )
 
     return {
-        "voltage": voltage,
-        "temperature": temperature,
-        "vibration": vibration,
+
+        "voltage":
+            voltage,
+
+        "temperature":
+            temperature,
+
+        "vibration":
+            vibration,
 
         "errors": {
-            "voltage": voltage_error,
-            "temperature": temperature_error,
-            "vibration": vibration_error,
+
+            "voltage":
+                voltage_error,
+
+            "temperature":
+                temperature_error,
+
+            "vibration":
+                vibration_error,
+
         },
+
     }
 
 
@@ -431,14 +563,9 @@ def fetch_common_values():
 # FETCH PRODUCT CURRENT
 # ============================================================
 
-def fetch_product_current(product_name: str):
-    """
-    Fetch current for selected product.
-
-    PRODUCT 1 -> V1
-    PRODUCT 2 -> V2
-    PRODUCT 3 -> V3
-    """
+def fetch_product_current(
+    product_name: str
+):
 
     if product_name not in PRODUCT_CONFIG:
 
@@ -451,23 +578,72 @@ def fetch_product_current(product_name: str):
         product_name
     ]["current_key"]
 
-    url = VPIN_URLS.get(current_key)
+    pin = VPINS.get(
+        current_key
+    )
 
-    return fetch_sensor(url)
+    if not pin:
+
+        return (
+            None,
+            f"No Blynk pin configured for "
+            f"{product_name}"
+        )
+
+    return fetch_sensor(
+        pin
+    )
 
 
 # ============================================================
-# PRODUCT AGE CALCULATION
+# FETCH ALL REQUIRED VALUES
+# ============================================================
+
+def fetch_all_sensor_values(
+    product_name: str
+):
+
+    common = fetch_common_values()
+
+    current, current_error = (
+        fetch_product_current(
+            product_name
+        )
+    )
+
+    errors = dict(
+        common["errors"]
+    )
+
+    errors["current"] = current_error
+
+    values = {
+
+        "voltage":
+            common["voltage"],
+
+        "current":
+            current,
+
+        "temperature":
+            common["temperature"],
+
+        "vibration":
+            common["vibration"],
+
+    }
+
+    return values, errors
+
+
+# ============================================================
+# PRODUCT AGE
 # ============================================================
 
 def calculate_product_age(
     manufacturing_date: str,
     installation_date: str
 ):
-    """
-    Calculate product age from manufacturing
-    and installation dates.
-    """
 
     try:
 
@@ -483,20 +659,12 @@ def calculate_product_age(
             "%Y-%m-%d"
         )
 
-        # ----------------------------------------------------
-        # VALIDATION
-        # ----------------------------------------------------
-
         if installation_dt < manufacture_dt:
 
             raise ValueError(
                 "Installation date cannot be "
                 "before manufacturing date."
             )
-
-        # ----------------------------------------------------
-        # AGE
-        # ----------------------------------------------------
 
         manufacturing_age_days = (
             today - manufacture_dt
@@ -507,26 +675,49 @@ def calculate_product_age(
         ).days
 
         return {
+
             "manufacturing_age_days":
-                max(0, manufacturing_age_days),
+                max(
+                    0,
+                    manufacturing_age_days
+                ),
 
             "installation_age_days":
-                max(0, installation_age_days),
+                max(
+                    0,
+                    installation_age_days
+                ),
 
             "manufacturing_age_years":
-                max(0, manufacturing_age_days) / 365.25,
+                max(
+                    0,
+                    manufacturing_age_days
+                ) / 365.25,
 
             "installation_age_years":
-                max(0, installation_age_days) / 365.25,
+                max(
+                    0,
+                    installation_age_days
+                ) / 365.25,
+
         }
 
     except Exception:
 
         return {
-            "manufacturing_age_days": 0,
-            "installation_age_days": 0,
-            "manufacturing_age_years": 0,
-            "installation_age_years": 0,
+
+            "manufacturing_age_days":
+                0,
+
+            "installation_age_days":
+                0,
+
+            "manufacturing_age_years":
+                0,
+
+            "installation_age_years":
+                0,
+
         }
 
 
@@ -542,28 +733,6 @@ def predict_product(
     temperature,
     vibration
 ):
-    """
-    Run:
-
-    Sensor values
-        ↓
-    Scaling
-        ↓
-    Condition Model
-        ↓
-    Condition Label
-        ↓
-    Life/RUL Model
-        ↓
-    Prediction Result
-
-    Returns:
-        result, error
-    """
-
-    # --------------------------------------------------------
-    # VALIDATE MODEL
-    # --------------------------------------------------------
 
     if models is None:
 
@@ -572,10 +741,6 @@ def predict_product(
             "ML models are not loaded."
         )
 
-    # --------------------------------------------------------
-    # VALIDATE PRODUCT
-    # --------------------------------------------------------
-
     if product_name not in PRODUCT_CONFIG:
 
         return (
@@ -583,18 +748,28 @@ def predict_product(
             f"Invalid product: {product_name}"
         )
 
-    # --------------------------------------------------------
-    # VALIDATE INPUTS
-    # --------------------------------------------------------
-
     try:
 
-        voltage = float(voltage)
-        load_current = float(load_current)
-        temperature = float(temperature)
-        vibration = float(vibration)
+        voltage = float(
+            voltage
+        )
 
-    except (TypeError, ValueError):
+        load_current = float(
+            load_current
+        )
+
+        temperature = float(
+            temperature
+        )
+
+        vibration = float(
+            vibration
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
 
         return (
             None,
@@ -603,7 +778,7 @@ def predict_product(
         )
 
     # --------------------------------------------------------
-    # PRODUCT INFORMATION
+    # PRODUCT AGE
     # --------------------------------------------------------
 
     product_info = PRODUCT_CONFIG[
@@ -611,8 +786,15 @@ def predict_product(
     ]
 
     age_info = calculate_product_age(
-        product_info["manufacturing_date"],
-        product_info["installation_date"]
+
+        product_info[
+            "manufacturing_date"
+        ],
+
+        product_info[
+            "installation_date"
+        ]
+
     )
 
     # --------------------------------------------------------
@@ -630,14 +812,16 @@ def predict_product(
     )
 
     # --------------------------------------------------------
-    # SCALE INPUT
+    # SCALE
     # --------------------------------------------------------
 
     try:
 
         scaled_data = models[
             "scaler"
-        ].transform(input_data)
+        ].transform(
+            input_data
+        )
 
     except Exception as e:
 
@@ -647,22 +831,30 @@ def predict_product(
         )
 
     # --------------------------------------------------------
-    # CONDITION PREDICTION
+    # CONDITION
     # --------------------------------------------------------
 
     try:
 
-        condition_encoded = models[
-            "condition_model"
-        ].predict(scaled_data)
+        condition_encoded = (
+            models[
+                "condition_model"
+            ].predict(
+                scaled_data
+            )
+        )
 
-        condition = models[
-            "label_encoder"
-        ].inverse_transform(
-            condition_encoded
-        )[0]
+        condition = (
+            models[
+                "label_encoder"
+            ].inverse_transform(
+                condition_encoded
+            )[0]
+        )
 
-        condition = str(condition)
+        condition = str(
+            condition
+        )
 
     except Exception as e:
 
@@ -672,21 +864,27 @@ def predict_product(
         )
 
     # --------------------------------------------------------
-    # RUL / LIFE PREDICTION
+    # RUL
     # --------------------------------------------------------
 
     try:
 
-        rul_prediction = models[
-            "life_model"
-        ].predict(scaled_data)
+        rul_prediction = (
+            models[
+                "life_model"
+            ].predict(
+                scaled_data
+            )
+        )
 
         rul = float(
             rul_prediction[0]
         )
 
-        # RUL cannot be negative
-        rul = max(0.0, rul)
+        rul = max(
+            0.0,
+            rul
+        )
 
     except Exception as e:
 
@@ -742,8 +940,12 @@ def predict_product(
         "rul":
             rul,
 
+        "rul_months":
+            rul,
+
         "timestamp":
             datetime.now(),
+
     }
 
     return result, None
@@ -753,16 +955,14 @@ def predict_product(
 # CONDITION COLOR
 # ============================================================
 
-def condition_color(condition: str) -> str:
-    """
-    Return display color based on condition.
-    """
+def condition_color(
+    condition: str
+):
 
     condition_text = str(
         condition
     ).lower()
 
-    # GOOD
     if any(
         word in condition_text
         for word in [
@@ -776,7 +976,6 @@ def condition_color(condition: str) -> str:
 
         return "#16a34a"
 
-    # WARNING
     if any(
         word in condition_text
         for word in [
@@ -789,7 +988,6 @@ def condition_color(condition: str) -> str:
 
         return "#f59e0b"
 
-    # CRITICAL
     if any(
         word in condition_text
         for word in [
@@ -803,24 +1001,19 @@ def condition_color(condition: str) -> str:
 
         return "#dc2626"
 
-    # DEFAULT
     return "#2563eb"
 
 
 # ============================================================
-# HISTORY - SAVE
+# HISTORY SAVE
 # ============================================================
 
-def append_history(result: dict):
-    """
-    Append prediction result to product CSV history.
-    """
-
-    # --------------------------------------------------------
-    # VALIDATE RESULT
-    # --------------------------------------------------------
+def append_history(
+    result: dict
+):
 
     if not result:
+
         return False
 
     product_name = result.get(
@@ -828,75 +1021,114 @@ def append_history(result: dict):
     )
 
     if not product_name:
-        return False
 
-    # --------------------------------------------------------
-    # FILE PATH
-    # --------------------------------------------------------
+        return False
 
     path = history_file(
         product_name
     )
 
-    # --------------------------------------------------------
-    # ROW
-    # --------------------------------------------------------
+    timestamp = result.get(
+        "timestamp"
+    )
+
+    if isinstance(
+        timestamp,
+        datetime
+    ):
+
+        timestamp_text = (
+            timestamp.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
+
+    else:
+
+        timestamp_text = (
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
 
     row = {
 
         "timestamp":
-            result[
-                "timestamp"
-            ].strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
+            timestamp_text,
 
         "product":
-            result[
+            result.get(
                 "product"
-            ],
+            ),
 
         "voltage":
             round(
-                float(result["voltage"]),
+                float(
+                    result.get(
+                        "voltage",
+                        0
+                    )
+                ),
                 3
             ),
 
         "current":
             round(
-                float(result["current"]),
+                float(
+                    result.get(
+                        "current",
+                        0
+                    )
+                ),
                 3
             ),
 
         "temperature":
             round(
-                float(result["temperature"]),
+                float(
+                    result.get(
+                        "temperature",
+                        0
+                    )
+                ),
                 3
             ),
 
         "vibration":
             round(
-                float(result["vibration"]),
+                float(
+                    result.get(
+                        "vibration",
+                        0
+                    )
+                ),
                 4
             ),
 
         "condition":
-            result[
-                "condition"
-            ],
+            result.get(
+                "condition",
+                ""
+            ),
 
         "rul_months":
             round(
-                float(result["rul"]),
+                float(
+                    result.get(
+                        "rul",
+                        0
+                    )
+                ),
                 2
             ),
 
         "manufacturing_age_years":
             round(
                 float(
-                    result[
-                        "manufacturing_age_years"
-                    ]
+                    result.get(
+                        "manufacturing_age_years",
+                        0
+                    )
                 ),
                 2
             ),
@@ -904,26 +1136,20 @@ def append_history(result: dict):
         "installation_age_years":
             round(
                 float(
-                    result[
-                        "installation_age_years"
-                    ]
+                    result.get(
+                        "installation_age_years",
+                        0
+                    )
                 ),
                 2
             ),
-    }
 
-    # --------------------------------------------------------
-    # DATAFRAME
-    # --------------------------------------------------------
+    }
 
     df_row = pd.DataFrame(
         [row],
         columns=HISTORY_COLUMNS
     )
-
-    # --------------------------------------------------------
-    # SAVE
-    # --------------------------------------------------------
 
     try:
 
@@ -953,23 +1179,16 @@ def append_history(result: dict):
 
 
 # ============================================================
-# HISTORY - LOAD
+# HISTORY LOAD
 # ============================================================
 
 def load_history(
     product_name: str
 ) -> pd.DataFrame:
-    """
-    Load prediction history for selected product.
-    """
 
     path = history_file(
         product_name
     )
-
-    # --------------------------------------------------------
-    # FILE DOES NOT EXIST
-    # --------------------------------------------------------
 
     if not os.path.exists(path):
 
@@ -977,27 +1196,21 @@ def load_history(
             columns=HISTORY_COLUMNS
         )
 
-    # --------------------------------------------------------
-    # READ FILE
-    # --------------------------------------------------------
-
     try:
 
-        df = pd.read_csv(path)
+        df = pd.read_csv(
+            path
+        )
 
-        # Make sure all expected columns exist
         for column in HISTORY_COLUMNS:
 
             if column not in df.columns:
 
                 df[column] = None
 
-        # Keep expected column order
-        df = df[
+        return df[
             HISTORY_COLUMNS
         ]
-
-        return df
 
     except Exception:
 
@@ -1007,16 +1220,12 @@ def load_history(
 
 
 # ============================================================
-# HISTORY - CLEAR
+# HISTORY CLEAR
 # ============================================================
 
 def clear_history(
     product_name: str
 ):
-    """
-    Delete prediction history CSV
-    for selected product.
-    """
 
     path = history_file(
         product_name
@@ -1026,7 +1235,9 @@ def clear_history(
 
         if os.path.exists(path):
 
-            os.remove(path)
+            os.remove(
+                path
+            )
 
         return True
 
@@ -1036,25 +1247,21 @@ def clear_history(
 
 
 # ============================================================
-# CHECK BLYNK CONNECTION
+# BLYNK CONFIGURATION CHECK
 # ============================================================
 
 def blynk_configured():
-    """
-    Check whether Blynk token is configured.
-    """
 
-    return bool(BLYNK_TOKEN)
+    return bool(
+        get_blynk_token()
+    )
 
 
 # ============================================================
-# GET AVAILABLE PRODUCTS
+# GET PRODUCTS
 # ============================================================
 
 def get_products():
-    """
-    Return available product names.
-    """
 
     return list(
         PRODUCT_CONFIG.keys()
