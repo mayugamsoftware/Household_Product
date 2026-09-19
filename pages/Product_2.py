@@ -1,3 +1,3 @@
 from product_view import render_product_page
 
-render_product_page("PRODUCT 1")
+render_product_page("PRODUCT 2")
