@@ -1,0 +1,4 @@
+timestamp,product,voltage,current,temperature,vibration,condition,rul_months,manufacturing_age_years,installation_age_years
+2026-09-17 18:06:42,PRODUCT 1,0.0,0.0,31.0,1.0,Average,15.22,1.67,1.62
+2026-09-19 09:15:41,PRODUCT 1,197.0,0.0,35.0,0.0,Good,36.6,1.68,1.63
+2026-09-19 09:23:33,PRODUCT 1,197.0,0.0,35.0,0.0,Good,36.6,1.68,1.63
